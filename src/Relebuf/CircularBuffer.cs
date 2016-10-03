@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Relebuf
 {
     public sealed class CircularBuffer<T> : IEnumerable<T>
     {
         private readonly uint _capacity;
-        private T[] _records = new T[0];
+        private CircularBufferRecord<T>[] _records = new CircularBufferRecord<T>[] { new CircularBufferRecord<T>(default(T), CircularBufferState.Empty) };
         private uint _cursor = 0;
 
         public CircularBuffer(uint capacity)
@@ -19,51 +20,71 @@ namespace Relebuf
 
         public void Insert(T item)
         {
-            if (_cursor == _capacity)
+            var removed = _records.Where(r => r.State == CircularBufferState.Removed);
+            if (removed.Count() > _capacity / 2)
             {
-                _cursor = 0;
-            }
-            else
-            {
-                EnsureSize(_cursor + 1);
+                ArrangeMemory();
             }
 
-            _records[_cursor] = item;
+            var empty = _records.Where(r => r.State == CircularBufferState.Empty);
+            if (empty.Count() == 0)
+            {
+                // If we have room to increase the size, claim more memory.
+                if (_records.Length < _capacity)
+                {
+                    ArrangeMemory();
+                }
+                else // We've hit the limit.
+                {
+                    if (removed.Count() > 0)
+                    {
+                        ArrangeMemory();
+                    }
+                    else
+                    {
+                        if (_cursor == _capacity)
+                        {
+                            _cursor = 0;
+                        }
+                    }
+                }
+            }
+
+            _records[_cursor].Record = item;
+            _records[_cursor].State = CircularBufferState.Occupied;
             _cursor++;
         }
 
-        private void EnsureSize(uint size)
+        private void ArrangeMemory()
         {
-            if (_records.Length >= size)
+            var newSize = Math.Max(Math.Min(_capacity, _records.Length * 2), 16);
+            var newRecords = new CircularBufferRecord<T>[newSize];
+            var recordsCursor = 0;
+            for (var i = 0; i < newRecords.Length; recordsCursor++)
             {
-                return;
+                if (i >= _records.Length)
+                {
+                    newRecords[i] = new CircularBufferRecord<T>(default(T), CircularBufferState.Empty);
+                    i++;
+                }
+                else if (_records[recordsCursor].State == CircularBufferState.Occupied)
+                {
+                    newRecords[i] = new CircularBufferRecord<T>(_records[recordsCursor].Record, CircularBufferState.Occupied);
+                    i++;
+                }
             }
 
-            if (size > _capacity)
-            {
-                size = _capacity;
-            }
-            else
-            {
-                size *= 2;
-            }
-
-            // Create a bigger array and copy current records to it.
-            var newRecords = new T[size];
-            Array.Copy(_records, newRecords, _records.Length);
-
-            // Register new array.
             _records = newRecords;
         }
 
         public IEnumerator<T> GetEnumerator()
         {
-            return ((IEnumerable<T>)_records).GetEnumerator();
+            return new CircularBufferEnumerator<T>(_records, _cursor);
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return _records.GetEnumerator();
+            return new CircularBufferEnumerator<T>(_records, _cursor);
         }
     }
 }
