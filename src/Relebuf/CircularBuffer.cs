@@ -9,6 +9,8 @@ namespace Relebuf
     {
         private readonly uint _capacity;
         private CircularBufferRecord<T>[] _records = new CircularBufferRecord<T>[] { new CircularBufferRecord<T>(default(T), CircularBufferState.Empty) };
+        private uint _firstItemIndex = 0;
+        private uint _lastItemIndex = 0;
         private uint _cursor = 0;
 
         public CircularBuffer(uint capacity)
@@ -50,9 +52,17 @@ namespace Relebuf
                 }
             }
 
+            var cursorRecord = _records[_cursor];
+            if (cursorRecord.State == CircularBufferState.Occupied)
+            {
+                // It will be overwritten, so register first item index.
+                _firstItemIndex = _cursor + 1 > _capacity ? 0 : _cursor + 1;
+            }
+
             _records[_cursor].Record = item;
             _records[_cursor].State = CircularBufferState.Occupied;
-            _cursor++;
+            _lastItemIndex = _cursor;
+            if (++_cursor == _capacity) { _cursor = 0; }
         }
 
         private void ArrangeMemory()
@@ -79,12 +89,12 @@ namespace Relebuf
 
         public IEnumerator<T> GetEnumerator()
         {
-            return new CircularBufferEnumerator<T>(_records, _cursor);
+            return new CircularBufferEnumerator<T>(_records, _firstItemIndex, _lastItemIndex);
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return new CircularBufferEnumerator<T>(_records, _cursor);
+            return new CircularBufferEnumerator<T>(_records, _firstItemIndex, _lastItemIndex);
         }
     }
 }

@@ -41,8 +41,8 @@ namespace Relebuf.Tests
                 buffer.Insert(i);
             }
 
-            Assert.Equal(100, buffer.ElementAt(0));
-            Assert.Equal(101, buffer.ElementAt(1));
+            Assert.Equal(10, buffer.ElementAt(0));
+            Assert.Equal(11, buffer.ElementAt(1));
         }
 
         [Fact]

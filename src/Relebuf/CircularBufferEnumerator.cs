@@ -7,23 +7,18 @@ namespace Relebuf
     public sealed class CircularBufferEnumerator<T> : IEnumerator<T>
     {
         private readonly CircularBufferRecord<T>[] _records;
-        private int _cursor;
+        private uint _cursor;
         private uint _lastOccupiedIndex;
+        private bool _looped;
+        private bool _moved = false;
 
-        public CircularBufferEnumerator(CircularBufferRecord<T>[] records, uint lastOccupiedIndex)
+        public CircularBufferEnumerator(CircularBufferRecord<T>[] records, uint firstItemIndex, uint lastOccupiedIndex)
         {
             _records = records;
             _lastOccupiedIndex = lastOccupiedIndex;
 
-            _cursor = -1;
-            for (var i = 0; i < _lastOccupiedIndex; i++)
-            {
-                if (_records[i].State == CircularBufferState.Occupied)
-                {
-                    _cursor = i - 1;
-                    break;
-                }
-            }
+            _cursor = firstItemIndex == records.Length ? 0 : firstItemIndex;
+            _looped = lastOccupiedIndex < firstItemIndex;
         }
 
         public T Current { get { return _records[_cursor].Record; } }
@@ -32,10 +27,20 @@ namespace Relebuf
 
         public bool MoveNext()
         {
-            if (_cursor == _lastOccupiedIndex) { return false; }
-
-            for (var i = _cursor + 1; i < _lastOccupiedIndex; i++)
+            if (!_moved)
             {
+                _moved = true;
+                if (_records[_cursor].State == CircularBufferState.Occupied)
+                {
+                    return true;
+                }
+            }
+
+            var i = _cursor;
+            while (i != _lastOccupiedIndex)
+            {
+                if (++i == _records.Length) { i = 0; }
+
                 if (_records[i].State == CircularBufferState.Occupied)
                 {
                     _cursor = i;
