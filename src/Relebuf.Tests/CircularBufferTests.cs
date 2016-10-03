@@ -69,5 +69,20 @@ namespace Relebuf.Tests
 
             Assert.Throws<ArgumentOutOfRangeException>(() => buffalo.ElementAt(5));
         }
+
+        [Fact]
+        public void MeaninglessTest()
+        {
+            uint capacity = 100;
+            var loopCount = 1000;
+            var totalInsertCount = capacity * loopCount;
+            var buffer = new CircularBuffer<int>(capacity);
+
+            for (var i = 0; i < totalInsertCount; i++)
+            {
+                buffer.Insert(i);
+                Assert.Equal(Math.Max(0, i - (capacity - 1)), buffer.First());
+            }
+        }
     }
 }
